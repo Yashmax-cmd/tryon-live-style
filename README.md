@@ -1,74 +1,161 @@
-# Welcome to your Lovable project
+🎽 Virtual Shirt Try-On System
 
-## Project info
+AI + AR Powered Real-Time Apparel Fitting Using Webcam
 
-**URL**: https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID
+📌 Project Overview
 
-## How can I edit this code?
+The Virtual Shirt Try-On System allows users to visualize how different shirts look and fit on their body using webcam-based augmented reality.
+It uses pose detection, image overlay, and real-time rendering to provide an interactive and engaging online shopping experience.
 
-There are several ways of editing your application.
+🚀 Key Features
 
-**Use Lovable**
+Real-time shirt try-on using webcam
 
-Simply visit the [Lovable Project](https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID) and start prompting.
+AI pose detection (MediaPipe / MoveNet)
 
-Changes made via Lovable will be committed automatically to this repo.
+Dynamic scaling and alignment based on user body movement
 
-**Use your preferred IDE**
+Shirt selection panel with multiple designs
 
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
+Snapshot/Download feature for try-on previews
 
-The only requirement is having Bun installed - [install Bun](https://bun.sh/docs/installation)
+Admin panel for uploading shirts
 
-Follow these steps:
+Basic analytics dashboard to track usage and engagement
 
-```sh
-# Step 1: Clone the repository using the project's Git URL.
-git clone <YOUR_GIT_URL>
+🧩 Problem This Solves
 
-# Step 2: Navigate to the project directory.
-cd <YOUR_PROJECT_NAME>
+Online shoppers struggle with:
 
-# Step 3: Install the necessary dependencies.
-bun install
+Uncertainty about fit, size, style, and look
 
-# Step 4: Start the development server with auto-reloading and an instant preview.
-bun run dev
-```
+High return rates (25–40%) due to sizing mismatch
 
-**Edit a file directly in GitHub**
+Low confidence when buying shirts online
 
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
+This system enables “Try Before You Buy”, making online apparel shopping more trustworthy and interactive.
 
-**Use GitHub Codespaces**
+👥 Target Users
+B2C
 
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
+Online shoppers aged 18–35
 
-## What technologies are used for this project?
+Fashion-conscious users who frequently shop on Myntra/Ajio/Amazon
 
-This project is built with:
+B2B
 
-- Bun 1.3.4
-- Vite 7.2.7
-- TypeScript
-- React 19.2.1
-- shadcn-ui
-- Tailwind CSS
+Small & mid-sized apparel retailers
 
-## How can I deploy this project?
+Instagram/Shopify clothing sellers
 
-Simply open [Lovable](https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID) and click on Share -> Publish.
+Boutique store owners
+(e.g., The Urban Streetwear)
 
-## Can I connect a custom domain to my Lovable project?
+📁 Project Structure
+/virtual-shirt-tryon
+│── /src
+│   ├── /components
+│   ├── /pages
+│   ├── /utils
+│   ├── /pose-models
+│── /public
+│── /models
+│── /assets (shirt images)
+│── /docs
+│   ├── Product_Requirement_Specification.pdf
+│   ├── Data_Usage_Plan.pdf
+│   ├── Design_Documents.pdf
+│   ├── Test_Plan.pdf
+│── package.json
+│── README.md
 
-Yes, you can!
+🛠️ Tech Stack
+Frontend
 
-To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
+React.js
 
-Read more here: [Setting up a custom domain](https://docs.lovable.dev/features/custom-domain#custom-domain)
+TensorFlow.js
+
+MediaPipe / MoveNet
+
+WebGL / Canvas for real-time rendering
+
+Backend
+
+Node.js or FastAPI
+
+Firebase / MongoDB for database
+
+Cloud storage for shirt assets
+
+🏗️ System Architecture (High-Level)
+
+User opens try-on page
+
+Webcam feed activated
+
+AI pose detector identifies shoulders & torso
+
+Shirt template is scaled + rotated in real-time
+
+Overlay rendered on video canvas
+
+User interacts, switches shirts, or takes snapshot
+
+Architecture diagram (include image later):
+
+Frontend → Pose Detection → AR Render Engine → Backend API → Database
+
+📘 Installation Guide
+git clone <repo-url>
+cd virtual-shirt-tryon
+npm install
+npm start
+
+
+Then open:
+http://localhost:3000
+
+▶️ Usage Guide
+
+Open the application
+
+Allow camera permission
+
+Choose any shirt from the right panel
+
+Move slightly—shirt aligns with your body
+
+Click Snapshot to save your preview
+
+Admin Usage:
+
+Login → Upload shirt → Add to catalog
+
+🧪 Test Plan Summary
+
+Webcam loading tests
+
+Pose detection accuracy
+
+Shirt alignment test
+
+Performance test (FPS > 20)
+
+Cross-browser test
+
+Admin upload validation
+
+Full Test Plan in /docs/Test_Plan.pdf.
+
+🧠 Future Enhancements
+
+Full-body outfit try-on
+
+3D garment simulation
+
+Mobile AR support
+
+Integration with Myntra/Amazon APIs
+
+Virtual dressing room for stores
