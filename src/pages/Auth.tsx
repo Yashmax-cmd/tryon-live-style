@@ -33,13 +33,13 @@ const Auth = () => {
     
     const emailResult = emailSchema.safeParse(email);
     if (!emailResult.success) {
-      toast({ title: "Invalid email", description: emailResult.error.errors[0].message, variant: "destructive" });
+      toast({ title: "Invalid email", description: emailResult.error.issues[0].message, variant: "destructive" });
       return;
     }
 
     const passwordResult = passwordSchema.safeParse(password);
     if (!passwordResult.success) {
-      toast({ title: "Invalid password", description: passwordResult.error.errors[0].message, variant: "destructive" });
+      toast({ title: "Invalid password", description: passwordResult.error.issues[0].message, variant: "destructive" });
       return;
     }
 

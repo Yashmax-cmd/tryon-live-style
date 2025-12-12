@@ -28,7 +28,7 @@ const Collection = () => {
       let query = supabase.from("products").select("id, name, price, category, image_url");
       
       if (activeCategory !== "All") {
-        query = query.eq("category", activeCategory.toLowerCase());
+        query = query.eq("category", activeCategory.toLowerCase() as "men" | "women" | "boys" | "girls");
       }
 
       const { data } = await query;
