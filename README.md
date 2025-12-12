@@ -13,8 +13,8 @@
 `https://github.com/Yashmax-cmd/tryon-live-style`
 
 ## 📌 Demo
-- YouTube (Unlisted) — *paste your video link here once uploaded*
-
+- YouTube -"---"
+-project link -fitmirror.vercel.app
 ---
 
 ## ✨ Key Features
