@@ -1,0 +1,94 @@
+INSTALL GUIDE AND USER GUIDE
+7.1 INSTALLATION GUIDE
+7.1.1 System Requirements
+
+Laptop/Desktop with webcam
+
+Node.js v18+
+
+Modern browser (Chrome/Edge)
+
+Internet connection
+
+7.1.2 Software Requirements
+
+Node.js
+
+npm / yarn
+
+Git
+
+7.1.3 Installation Steps
+git clone https://github.com/Yashmax-cmd/tryon-live-style.git
+cd tryon-live-style
+npm install
+npm start
+
+
+Open browser and navigate to:
+http://localhost:3000
+
+7.1.4 Configuration
+
+Allow webcam permissions
+
+Ensure shirt assets are placed in /assets
+
+Backend API URL configured in .env
+
+7.1.5 Troubleshooting
+Issue	Solution
+Webcam not loading	Check browser permissions
+Shirt not aligning	Ensure good lighting
+App not starting	Reinstall node modules
+7.2 USER GUIDE
+7.2.1 User Roles
+
+Customer/User
+
+Admin/Shop Owner
+
+7.2.2 User Guide – Customer
+
+Steps to Use Try-On
+
+Open the application
+
+Login/Register
+
+Allow camera access
+
+Select shirt from catalog
+
+View real-time try-on
+
+Change size/color if needed
+
+Add to cart & pay
+
+7.2.3 User Guide – Admin
+
+Admin Functions
+
+Login as admin
+
+Upload shirt images
+
+Add size & category
+
+Manage products
+
+View analytics dashboard
+
+7.2.4 Key Benefits to User
+
+Try before buy experience
+
+Reduced returns
+
+Faster purchase decisions
+
+7.2.5 User Support
+
+For issues, contact:
+📧
