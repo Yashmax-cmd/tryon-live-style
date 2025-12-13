@@ -69,21 +69,23 @@ const TryOn = () => {
   };
 
   const startCamera = useCallback(async () => {
+    console.log("[TryOn] startCamera called");
     setIsLoading(true);
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
         video: { facingMode: "user", width: { ideal: 1280 }, height: { ideal: 720 } },
       });
-      
+
+      console.log("[TryOn] got user media", stream);
       streamRef.current = stream;
       setIsCameraActive(true);
-      
+
       toast({
         title: "Camera activated",
         description: "Select an item and click 'Try On with AI' to see the magic!",
       });
     } catch (error) {
-      console.error("Error accessing camera:", error);
+      console.error("[TryOn] Error accessing camera:", error);
       toast({
         title: "Camera access denied",
         description: "Please allow camera access to use virtual try-on.",
@@ -95,12 +97,17 @@ const TryOn = () => {
 
   useEffect(() => {
     if (isCameraActive && videoRef.current && streamRef.current) {
+      console.log("[TryOn] attaching stream to video", streamRef.current);
       videoRef.current.srcObject = streamRef.current;
-      videoRef.current.play().catch(console.error);
+      videoRef.current
+        .play()
+        .then(() => console.log("[TryOn] video playing"))
+        .catch((err) => console.error("[TryOn] video play error", err));
     }
   }, [isCameraActive]);
 
   const stopCamera = useCallback(() => {
+    console.log("[TryOn] stopCamera called");
     if (streamRef.current) {
       streamRef.current.getTracks().forEach((track) => track.stop());
       streamRef.current = null;
@@ -114,46 +121,48 @@ const TryOn = () => {
   }, []);
 
   const captureFrame = useCallback(() => {
+    console.log("[TryOn] captureFrame called");
     if (!videoRef.current || !canvasRef.current) {
-      console.error("Video or canvas ref not available");
+      console.error("[TryOn] Video or canvas ref not available");
       return null;
     }
-    
+
     const video = videoRef.current;
     const canvas = canvasRef.current;
-    
+
     if (video.videoWidth === 0 || video.videoHeight === 0) {
-      console.error("Video dimensions not ready:", video.videoWidth, video.videoHeight);
+      console.error("[TryOn] Video dimensions not ready:", video.videoWidth, video.videoHeight);
       return null;
     }
-    
+
     canvas.width = video.videoWidth;
     canvas.height = video.videoHeight;
-    
+
     const ctx = canvas.getContext("2d");
     if (!ctx) {
-      console.error("Could not get canvas context");
+      console.error("[TryOn] Could not get canvas context");
       return null;
     }
-    
+
     ctx.save();
     ctx.translate(canvas.width, 0);
     ctx.scale(-1, 1);
     ctx.drawImage(video, 0, 0);
     ctx.restore();
-    
+
     const dataUrl = canvas.toDataURL("image/jpeg", 0.85);
-    
+
     if (!dataUrl || dataUrl === "data:," || dataUrl.length < 1000) {
-      console.error("Invalid data URL generated:", dataUrl.substring(0, 50));
+      console.error("[TryOn] Invalid data URL generated:", dataUrl.substring(0, 50));
       return null;
     }
-    
-    console.log("Captured frame successfully, length:", dataUrl.length);
+
+    console.log("[TryOn] Captured frame successfully, length:", dataUrl.length);
     return dataUrl;
   }, []);
 
   const handleTryOn = useCallback(async () => {
+    console.log("[TryOn] handleTryOn clicked with item", selectedItem);
     if (!selectedItem) {
       toast({
         title: "Select an item",
@@ -186,6 +195,8 @@ const TryOn = () => {
         },
       });
 
+      console.log("[TryOn] function response", { data, error });
+
       if (error) {
         throw error;
       }
@@ -202,7 +213,7 @@ const TryOn = () => {
         });
       }
     } catch (error) {
-      console.error("Try-on error:", error);
+      console.error("[TryOn] Try-on error:", error);
       toast({
         title: "Try-on failed",
         description: error instanceof Error ? error.message : "Something went wrong. Please try again.",
