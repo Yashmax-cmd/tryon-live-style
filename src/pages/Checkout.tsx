@@ -182,13 +182,13 @@ const Checkout = () => {
                     Scan the QR code with any UPI app to complete payment
                   </p>
                   <div className="flex justify-center mb-6">
-                    <QRCode upiId="756994933@ybl" amount={total} name="LUXE Store" />
+                    <QRCode upiId="7569774933@ybl" amount={total} name="LUXE Store" />
                   </div>
                   <p className="text-gold text-xl font-medium mb-4">
                     Amount: {formatPrice(total)}
                   </p>
                   <p className="text-sm text-muted-foreground mb-6">
-                    UPI ID: 756994933@ybl
+                    UPI ID: 7569774933@ybl
                   </p>
                   <div className="flex gap-4 justify-center">
                     <Button variant="outline" onClick={() => setShowQR(false)}>
