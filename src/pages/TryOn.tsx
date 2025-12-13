@@ -223,6 +223,11 @@ const TryOn = () => {
   const clearResult = useCallback(() => {
     setCapturedImage(null);
     setResultImage(null);
+    // Re-attach stream to video element after clearing result
+    if (streamRef.current && videoRef.current) {
+      videoRef.current.srcObject = streamRef.current;
+      videoRef.current.play().catch(console.error);
+    }
   }, []);
 
   useEffect(() => {
