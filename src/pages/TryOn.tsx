@@ -1,12 +1,11 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, Camera, CameraOff, ShoppingBag, Sparkles, Minus, Plus } from "lucide-react";
+import { ArrowLeft, Camera, CameraOff, RefreshCw, ShoppingBag, Sparkles, X } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useCart } from "@/hooks/useCart";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Slider } from "@/components/ui/slider";
 
 interface Product {
   id: string;
@@ -22,11 +21,13 @@ const TryOn = () => {
   const [isCameraActive, setIsCameraActive] = useState(false);
   const [selectedItem, setSelectedItem] = useState<Product | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [capturedImage, setCapturedImage] = useState<string | null>(null);
+  const [resultImage, setResultImage] = useState<string | null>(null);
   const [products, setProducts] = useState<Product[]>([]);
   const [loadingProducts, setLoadingProducts] = useState(true);
-  const [overlaySize, setOverlaySize] = useState(60); // percentage of container width
-  const [overlayY, setOverlayY] = useState(15); // percentage from top
   const videoRef = useRef<HTMLVideoElement>(null);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const { toast } = useToast();
   const { addToCart } = useCart();
@@ -79,7 +80,7 @@ const TryOn = () => {
 
       toast({
         title: "Camera activated",
-        description: "Select an item to see it on you in real-time!",
+        description: "Select an item and click 'Try On with AI' to see the magic!",
       });
     } catch (error) {
       console.error("Error accessing camera:", error);
@@ -108,13 +109,142 @@ const TryOn = () => {
       videoRef.current.srcObject = null;
     }
     setIsCameraActive(false);
+    setCapturedImage(null);
+    setResultImage(null);
   }, []);
+
+  const captureFrame = useCallback(() => {
+    if (!videoRef.current || !canvasRef.current) {
+      return null;
+    }
+
+    const video = videoRef.current;
+    const canvas = canvasRef.current;
+
+    if (video.videoWidth === 0 || video.videoHeight === 0) {
+      return null;
+    }
+
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+
+    const ctx = canvas.getContext("2d");
+    if (!ctx) {
+      return null;
+    }
+
+    ctx.save();
+    ctx.translate(canvas.width, 0);
+    ctx.scale(-1, 1);
+    ctx.drawImage(video, 0, 0);
+    ctx.restore();
+
+    const dataUrl = canvas.toDataURL("image/jpeg", 0.85);
+
+    if (!dataUrl || dataUrl === "data:," || dataUrl.length < 1000) {
+      return null;
+    }
+
+    return dataUrl;
+  }, []);
+
+  const handleTryOn = useCallback(async () => {
+    if (!selectedItem) {
+      toast({
+        title: "Select an item",
+        description: "Please select a clothing item to try on.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const frame = captureFrame();
+    if (!frame) {
+      toast({
+        title: "Capture failed",
+        description: "Could not capture camera frame. Please try again.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setCapturedImage(frame);
+    setIsProcessing(true);
+    setResultImage(null);
+
+    try {
+      const { data, error } = await supabase.functions.invoke("virtual-try-on", {
+        body: {
+          userImage: frame,
+          clothingDescription: selectedItem.description || selectedItem.name,
+          clothingImageUrl: selectedItem.image_url,
+        },
+      });
+
+      if (error) {
+        throw error;
+      }
+
+      if (data.error) {
+        // Handle specific errors
+        if (data.error.includes("credits") || data.error.includes("Usage limit")) {
+          toast({
+            title: "AI Credits Needed",
+            description: "Please add credits to your workspace in Settings → Workspace → Usage to use AI try-on.",
+            variant: "destructive",
+          });
+        } else {
+          throw new Error(data.error);
+        }
+        setCapturedImage(null);
+        return;
+      }
+
+      if (data.resultImage) {
+        setResultImage(data.resultImage);
+        toast({
+          title: "Try-on complete!",
+          description: `See how you look in the ${selectedItem.name}`,
+        });
+      }
+    } catch (error) {
+      console.error("Try-on error:", error);
+      const errorMessage = error instanceof Error ? error.message : "Something went wrong";
+      
+      if (errorMessage.includes("402") || errorMessage.includes("credits")) {
+        toast({
+          title: "AI Credits Needed",
+          description: "Please add credits to your workspace to use the AI try-on feature.",
+          variant: "destructive",
+        });
+      } else {
+        toast({
+          title: "Try-on failed",
+          description: errorMessage,
+          variant: "destructive",
+        });
+      }
+      setCapturedImage(null);
+    } finally {
+      setIsProcessing(false);
+    }
+  }, [selectedItem, captureFrame, toast]);
 
   const handleAddToCart = async () => {
     if (selectedItem) {
       await addToCart(selectedItem.id, "M");
     }
   };
+
+  const clearResult = useCallback(() => {
+    setCapturedImage(null);
+    setResultImage(null);
+    // Re-attach stream to video element after clearing result
+    if (streamRef.current && videoRef.current) {
+      videoRef.current.srcObject = streamRef.current;
+      videoRef.current.play().catch(console.error);
+    }
+  }, []);
 
   useEffect(() => {
     return () => {
@@ -126,6 +256,8 @@ const TryOn = () => {
 
   return (
     <div className="min-h-screen bg-background">
+      <canvas ref={canvasRef} className="hidden" />
+      
       {/* Header */}
       <header className="fixed top-0 left-0 right-0 z-50 bg-background/80 backdrop-blur-md border-b border-border">
         <div className="container mx-auto px-6">
@@ -137,7 +269,7 @@ const TryOn = () => {
               <ArrowLeft className="h-4 w-4" />
               Back to Collection
             </Link>
-            <h1 className="font-display text-xl">Virtual Try-On</h1>
+            <h1 className="font-display text-xl">AI Virtual Try-On</h1>
             <div className="w-24" />
           </nav>
         </div>
@@ -148,7 +280,7 @@ const TryOn = () => {
         <aside className="w-80 border-r border-border bg-card p-6 overflow-y-auto max-h-screen">
           <h2 className="font-display text-lg mb-4">Select an Item</h2>
           <p className="text-sm text-muted-foreground mb-6">
-            Choose clothing to preview in real-time ({products.length} items)
+            Choose any clothing to try on with AI ({products.length} items)
           </p>
 
           <div className="space-y-4 pb-20">
@@ -192,133 +324,39 @@ const TryOn = () => {
 
         {/* Main camera area */}
         <main className="flex-1 flex flex-col items-center justify-center p-8">
-          <div className="relative w-full max-w-3xl aspect-video rounded-2xl overflow-hidden bg-secondary border border-border">
-            {isCameraActive ? (
-              <>
-                <video
-                  ref={videoRef}
-                  autoPlay
-                  playsInline
-                  muted
-                  className="w-full h-full object-cover"
-                  style={{ transform: "scaleX(-1)" }}
-                />
-                
-                {/* Real-time clothing overlay */}
-                {selectedItem && (
-                  <div 
-                    className="absolute pointer-events-none"
-                    style={{
-                      top: `${overlayY}%`,
-                      left: '50%',
-                      transform: 'translateX(-50%)',
-                      width: `${overlaySize}%`,
-                    }}
-                  >
+          {resultImage ? (
+            <div className="w-full max-w-5xl">
+              <div className="grid grid-cols-2 gap-8">
+                <div className="relative">
+                  <p className="text-muted-foreground text-sm mb-3">Original</p>
+                  <div className="aspect-[3/4] rounded-2xl overflow-hidden bg-secondary border border-border">
                     <img
-                      src={selectedItem.image_url}
-                      alt={selectedItem.name}
-                      className="w-full h-auto object-contain opacity-80 mix-blend-multiply dark:mix-blend-screen"
-                      style={{ 
-                        filter: 'drop-shadow(0 4px 20px rgba(0,0,0,0.3))',
-                      }}
+                      src={capturedImage || ""}
+                      alt="Original"
+                      className="w-full h-full object-cover"
                     />
                   </div>
-                )}
-
-                {selectedItem && (
-                  <div className="absolute top-4 left-4 bg-background/90 backdrop-blur-sm rounded-lg p-3 border border-gold">
-                    <p className="text-sm font-medium text-gold flex items-center gap-2">
-                      <Sparkles className="h-4 w-4" />
-                      {selectedItem.name}
-                    </p>
-                    <p className="text-xs text-muted-foreground">Live preview</p>
-                  </div>
-                )}
-
-                {!selectedItem && (
-                  <div className="absolute inset-0 flex items-center justify-center">
-                    <div className="bg-background/80 backdrop-blur-sm rounded-lg p-6 text-center">
-                      <Sparkles className="h-8 w-8 text-gold mx-auto mb-3" />
-                      <p className="font-medium">Select an item from the sidebar</p>
-                      <p className="text-sm text-muted-foreground">to see it on you in real-time</p>
-                    </div>
-                  </div>
-                )}
-              </>
-            ) : (
-              <div className="w-full h-full flex flex-col items-center justify-center text-center p-8">
-                <div className="w-24 h-24 rounded-full bg-gold/10 flex items-center justify-center mb-6">
-                  <Camera className="h-12 w-12 text-gold" />
                 </div>
-                <h3 className="font-display text-2xl mb-2">Virtual Try-On</h3>
-                <p className="text-muted-foreground max-w-sm mb-8">
-                  Enable your camera to see clothing on you in real-time!
-                </p>
-                <Button
-                  variant="hero"
-                  size="xl"
-                  onClick={startCamera}
-                  disabled={isLoading}
-                  className="gap-3"
-                >
-                  {isLoading ? (
-                    <div className="h-5 w-5 animate-spin rounded-full border-2 border-current border-t-transparent" />
-                  ) : (
-                    <Camera className="h-5 w-5" />
-                  )}
-                  {isLoading ? "Activating..." : "Enable Camera"}
-                </Button>
+
+                <div className="relative">
+                  <p className="text-gold text-sm mb-3 flex items-center gap-2">
+                    <Sparkles className="h-4 w-4" />
+                    With {selectedItem?.name}
+                  </p>
+                  <div className="aspect-[3/4] rounded-2xl overflow-hidden bg-secondary border border-gold">
+                    <img
+                      src={resultImage}
+                      alt="Try-on result"
+                      className="w-full h-full object-cover"
+                    />
+                  </div>
+                </div>
               </div>
-            )}
-          </div>
 
-          {/* Controls */}
-          {isCameraActive && (
-            <div className="w-full max-w-3xl mt-6 space-y-4">
-              {/* Size and position controls */}
-              {selectedItem && (
-                <div className="bg-card rounded-lg p-4 border border-border">
-                  <p className="text-sm font-medium mb-3">Adjust Overlay</p>
-                  <div className="grid grid-cols-2 gap-6">
-                    <div>
-                      <label className="text-xs text-muted-foreground mb-2 block">Size</label>
-                      <div className="flex items-center gap-3">
-                        <Minus className="h-4 w-4 text-muted-foreground" />
-                        <Slider
-                          value={[overlaySize]}
-                          onValueChange={(v) => setOverlaySize(v[0])}
-                          min={30}
-                          max={100}
-                          step={5}
-                          className="flex-1"
-                        />
-                        <Plus className="h-4 w-4 text-muted-foreground" />
-                      </div>
-                    </div>
-                    <div>
-                      <label className="text-xs text-muted-foreground mb-2 block">Position</label>
-                      <div className="flex items-center gap-3">
-                        <span className="text-xs text-muted-foreground">Top</span>
-                        <Slider
-                          value={[overlayY]}
-                          onValueChange={(v) => setOverlayY(v[0])}
-                          min={0}
-                          max={50}
-                          step={5}
-                          className="flex-1"
-                        />
-                        <span className="text-xs text-muted-foreground">Bottom</span>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              <div className="flex items-center justify-center gap-4">
-                <Button variant="outline" onClick={stopCamera} className="gap-2">
-                  <CameraOff className="h-4 w-4" />
-                  Stop Camera
+              <div className="flex items-center justify-center gap-4 mt-8">
+                <Button variant="outline" onClick={clearResult} className="gap-2">
+                  <X className="h-4 w-4" />
+                  Try Another
                 </Button>
                 {selectedItem && (
                   <Button variant="gold" className="gap-2" onClick={handleAddToCart}>
@@ -328,15 +366,94 @@ const TryOn = () => {
                 )}
               </div>
             </div>
+          ) : (
+            <>
+              <div className="relative w-full max-w-3xl aspect-video rounded-2xl overflow-hidden bg-secondary border border-border">
+                {isCameraActive ? (
+                  <>
+                    <video
+                      ref={videoRef}
+                      autoPlay
+                      playsInline
+                      muted
+                      className="w-full h-full object-cover"
+                      style={{ transform: "scaleX(-1)" }}
+                    />
+                    {isProcessing && (
+                      <div className="absolute inset-0 bg-background/80 backdrop-blur-sm flex flex-col items-center justify-center">
+                        <div className="w-16 h-16 rounded-full bg-gold/20 flex items-center justify-center mb-4 animate-pulse">
+                          <Sparkles className="h-8 w-8 text-gold" />
+                        </div>
+                        <p className="text-lg font-medium">AI is dressing you up...</p>
+                        <p className="text-sm text-muted-foreground">This may take a few seconds</p>
+                      </div>
+                    )}
+                    {selectedItem && !isProcessing && (
+                      <div className="absolute top-4 left-4 bg-background/80 backdrop-blur-sm rounded-lg p-3">
+                        <p className="text-sm font-medium">{selectedItem.name}</p>
+                        <p className="text-xs text-muted-foreground">Selected for try-on</p>
+                      </div>
+                    )}
+                  </>
+                ) : (
+                  <div className="w-full h-full flex flex-col items-center justify-center text-center p-8">
+                    <div className="w-24 h-24 rounded-full bg-gold/10 flex items-center justify-center mb-6">
+                      <Camera className="h-12 w-12 text-gold" />
+                    </div>
+                    <h3 className="font-display text-2xl mb-2">AI Virtual Try-On</h3>
+                    <p className="text-muted-foreground max-w-sm mb-8">
+                      Enable your camera, select an item, and let AI show you wearing it!
+                    </p>
+                    <Button
+                      variant="hero"
+                      size="xl"
+                      onClick={startCamera}
+                      disabled={isLoading}
+                      className="gap-3"
+                    >
+                      {isLoading ? (
+                        <RefreshCw className="h-5 w-5 animate-spin" />
+                      ) : (
+                        <Camera className="h-5 w-5" />
+                      )}
+                      {isLoading ? "Activating..." : "Enable Camera"}
+                    </Button>
+                  </div>
+                )}
+              </div>
+
+              <div className="flex items-center gap-4 mt-8">
+                {isCameraActive && (
+                  <>
+                    <Button variant="outline" onClick={stopCamera} className="gap-2">
+                      <CameraOff className="h-4 w-4" />
+                      Stop Camera
+                    </Button>
+                    <Button
+                      variant="hero"
+                      size="lg"
+                      onClick={handleTryOn}
+                      disabled={!selectedItem || isProcessing}
+                      className="gap-2"
+                    >
+                      <Sparkles className="h-4 w-4" />
+                      Try On with AI
+                    </Button>
+                  </>
+                )}
+              </div>
+            </>
           )}
 
-          <div className="mt-6 text-center max-w-lg">
+          <div className="mt-8 text-center max-w-lg">
             <p className="text-sm text-muted-foreground">
-              <Sparkles className="h-4 w-4 inline-block mr-2" />
-              {isCameraActive && selectedItem
-                ? "Adjust the size and position to see how the item looks on you!"
-                : "Select an item from the sidebar to see it overlaid on your camera feed in real-time."
+              {resultImage 
+                ? "Like what you see? Add it to your cart or try another item!"
+                : "Select an item from the sidebar, then click 'Try On with AI' to see yourself wearing it."
               }
+            </p>
+            <p className="text-xs text-muted-foreground/60 mt-2">
+              Powered by AI • Requires workspace credits
             </p>
           </div>
         </main>
