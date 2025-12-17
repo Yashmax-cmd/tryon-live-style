@@ -82,7 +82,7 @@ const TryOn = () => {
 
       toast({
         title: "Camera activated",
-        description: "Select an item and click 'Try On with AI' to see the magic!",
+        description: "Select an item and click 'Try On' to preview!",
       });
     } catch (error) {
       console.error("[TryOn] Error accessing camera:", error);
@@ -187,36 +187,64 @@ const TryOn = () => {
     setResultImage(null);
 
     try {
-      const { data, error } = await supabase.functions.invoke("virtual-try-on", {
-        body: {
-          userImage: frame,
-          clothingDescription: selectedItem.description || selectedItem.name,
-          clothingImageUrl: selectedItem.image_url,
-        },
+      // Client-side overlay approach (no credits needed)
+      const canvas = canvasRef.current;
+      if (!canvas) throw new Error("Canvas not available");
+
+      const ctx = canvas.getContext("2d");
+      if (!ctx) throw new Error("Canvas context not available");
+
+      // Load user image
+      const userImg = new Image();
+      userImg.crossOrigin = "anonymous";
+      
+      await new Promise<void>((resolve, reject) => {
+        userImg.onload = () => resolve();
+        userImg.onerror = reject;
+        userImg.src = frame;
       });
 
-      console.log("[TryOn] function response", { data, error });
+      // Load clothing image
+      const clothingImg = new Image();
+      clothingImg.crossOrigin = "anonymous";
+      
+      await new Promise<void>((resolve, reject) => {
+        clothingImg.onload = () => resolve();
+        clothingImg.onerror = reject;
+        clothingImg.src = selectedItem.image_url;
+      });
 
-      if (error) {
-        throw error;
-      }
+      // Set canvas size
+      canvas.width = userImg.width;
+      canvas.height = userImg.height;
 
-      if (data.error) {
-        throw new Error(data.error);
-      }
+      // Draw user image
+      ctx.drawImage(userImg, 0, 0);
 
-      if (data.resultImage) {
-        setResultImage(data.resultImage);
-        toast({
-          title: "Try-on complete!",
-          description: `See how you look in the ${selectedItem.name}`,
-        });
-      }
+      // Calculate clothing overlay position (centered on torso area)
+      const clothingWidth = canvas.width * 0.6;
+      const clothingHeight = (clothingImg.height / clothingImg.width) * clothingWidth;
+      const clothingX = (canvas.width - clothingWidth) / 2;
+      const clothingY = canvas.height * 0.15; // Start from upper chest area
+
+      // Apply slight transparency for overlay effect
+      ctx.globalAlpha = 0.85;
+      ctx.drawImage(clothingImg, clothingX, clothingY, clothingWidth, clothingHeight);
+      ctx.globalAlpha = 1.0;
+
+      // Get result
+      const resultDataUrl = canvas.toDataURL("image/jpeg", 0.9);
+      setResultImage(resultDataUrl);
+      
+      toast({
+        title: "Try-on complete!",
+        description: `See how ${selectedItem.name} looks on you (preview mode)`,
+      });
     } catch (error) {
       console.error("[TryOn] Try-on error:", error);
       toast({
         title: "Try-on failed",
-        description: error instanceof Error ? error.message : "Something went wrong. Please try again.",
+        description: "Could not create overlay. Please try again.",
         variant: "destructive",
       });
       setCapturedImage(null);
@@ -275,7 +303,7 @@ const TryOn = () => {
         <aside className="w-80 border-r border-border bg-card p-6 overflow-y-auto max-h-screen">
           <h2 className="font-display text-lg mb-4">Select an Item</h2>
           <p className="text-sm text-muted-foreground mb-6">
-            Choose any clothing to try on with AI ({products.length} items)
+            Choose any clothing to try on ({products.length} items)
           </p>
 
           <div className="space-y-4 pb-20">
@@ -432,7 +460,7 @@ const TryOn = () => {
                       className="gap-2"
                     >
                       <Sparkles className="h-4 w-4" />
-                      Try On with AI
+                      Try On
                     </Button>
                   </>
                 )}
@@ -445,7 +473,7 @@ const TryOn = () => {
               <Shirt className="h-4 w-4 inline-block mr-2" />
               {resultImage 
                 ? "Like what you see? Add it to your cart or try another item!"
-                : "Select an item from the sidebar, then click 'Try On with AI' to see yourself wearing it."
+                : "Select an item from the sidebar, then click 'Try On' to preview it."
               }
             </p>
           </div>
