@@ -202,10 +202,19 @@ const TryOn = () => {
 
       if (data.resultImage) {
         setResultImage(data.resultImage);
-        toast({
-          title: "Try-on complete!",
-          description: `See how you look in the ${selectedItem.name}`,
-        });
+
+        if (data.message && data.message.includes("Simulation Mode")) {
+          toast({
+            title: "Simulation Mode Active",
+            description: "Showing original image. Real AI processing requires API credits.",
+            variant: "default",
+          });
+        } else {
+          toast({
+            title: "Try-on complete!",
+            description: `See how you look in the ${selectedItem.name}`,
+          });
+        }
       }
     } catch (error) {
       console.error("Try-on error:", error);
@@ -453,7 +462,7 @@ const TryOn = () => {
               }
             </p>
             <p className="text-xs text-muted-foreground/60 mt-2">
-              Powered by AI • Requires workspace credits
+              Powered by AI • Requires workspace credits (Simulation mode available)
             </p>
           </div>
         </main>
