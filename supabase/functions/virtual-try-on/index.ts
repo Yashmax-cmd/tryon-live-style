@@ -13,11 +13,6 @@ serve(async (req) => {
   try {
     const { userImage, clothingDescription } = await req.json();
     
-    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-    if (!LOVABLE_API_KEY) {
-      throw new Error("LOVABLE_API_KEY is not configured");
-    }
-
     // Validate the user image
     if (!userImage || userImage === "data:," || userImage.length < 100) {
       throw new Error("Invalid or empty user image. Please try capturing again.");
@@ -27,8 +22,17 @@ serve(async (req) => {
     console.log("Clothing description:", clothingDescription);
     console.log("User image length:", userImage.length);
 
-    const prompt = `You are an AI virtual try-on assistant. Take this person's photo and replace their current clothing with a ${clothingDescription}. 
-    
+    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
+    let generatedImage = null;
+    let textResponse = "";
+    let usingSimulation = false;
+
+    if (!LOVABLE_API_KEY) {
+      console.warn("LOVABLE_API_KEY is not configured. Using simulation mode.");
+      usingSimulation = true;
+    } else {
+      const prompt = `You are an AI virtual try-on assistant. Take this person's photo and replace their current clothing with a ${clothingDescription}.
+
 Critical instructions:
 - Keep the person's face, hair, skin tone, body pose, and background exactly the same
 - Only replace the clothing/shirt/top area with the new garment: ${clothingDescription}
@@ -37,65 +41,65 @@ Critical instructions:
 - The result should look like a real photograph, not edited
 - Generate a full image showing the person wearing the new ${clothingDescription}`;
 
-    const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${LOVABLE_API_KEY}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: "google/gemini-2.5-flash-image",
-        messages: [
-          {
-            role: "user",
-            content: [
+      try {
+        const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${LOVABLE_API_KEY}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            model: "google/gemini-2.5-flash-image",
+            messages: [
               {
-                type: "text",
-                text: prompt,
-              },
-              {
-                type: "image_url",
-                image_url: {
-                  url: userImage,
-                },
+                role: "user",
+                content: [
+                  {
+                    type: "text",
+                    text: prompt,
+                  },
+                  {
+                    type: "image_url",
+                    image_url: {
+                      url: userImage,
+                    },
+                  },
+                ],
               },
             ],
-          },
-        ],
-        modalities: ["image", "text"],
-      }),
-    });
+            modalities: ["image", "text"],
+          }),
+        });
 
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error("AI gateway error:", response.status, errorText);
-      
-      if (response.status === 429) {
-        return new Response(
-          JSON.stringify({ error: "Rate limit exceeded. Please try again in a moment." }),
-          { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
+        if (!response.ok) {
+          const errorText = await response.text();
+          console.error("AI gateway error:", response.status, errorText);
+
+          if (response.status === 402 || response.status === 429) {
+             console.warn("Quota/Credit limit reached. Falling back to simulation mode.");
+             usingSimulation = true;
+          } else {
+             throw new Error(`AI processing failed: ${response.statusText}`);
+          }
+        } else {
+            const data = await response.json();
+            console.log("AI response received successfully");
+            generatedImage = data.choices?.[0]?.message?.images?.[0]?.image_url?.url;
+            textResponse = data.choices?.[0]?.message?.content || "";
+        }
+      } catch (error) {
+        console.error("Error calling AI service:", error);
+        usingSimulation = true;
       }
-      if (response.status === 402) {
-        return new Response(
-          JSON.stringify({ error: "Usage limit reached. Please check your workspace credits." }),
-          { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
-      }
-      
-      throw new Error(`AI processing failed. Please try again.`);
     }
 
-    const data = await response.json();
-    console.log("AI response received successfully");
-
-    // Extract the generated image
-    const generatedImage = data.choices?.[0]?.message?.images?.[0]?.image_url?.url;
-    const textResponse = data.choices?.[0]?.message?.content || "";
-
-    if (!generatedImage) {
-      console.error("No image in response:", JSON.stringify(data).substring(0, 500));
-      throw new Error("AI did not generate an image. Please try again.");
+    if (usingSimulation || !generatedImage) {
+        // Fallback/Simulation Mode
+        console.log("Using simulation/fallback response");
+        // In a real app, you might want to overlay the clothes or do some processing.
+        // Here we will just return the original image to verify the flow works.
+        generatedImage = userImage;
+        textResponse = "Simulation Mode: Credits exhausted or API key missing. This is the original image.";
     }
 
     return new Response(
